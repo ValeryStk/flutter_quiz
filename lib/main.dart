@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:ui';
 import 'dart:io';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isWindows || Platform.isLinux) {
@@ -15,6 +16,7 @@ void main() async {
   runApp(const MyApp());
 }
 
+
 // РЕЦЕПТ УСПЕХА: Игнорирование скроллбаров Windows
 class NoScrollbarBehavior extends MaterialScrollBehavior {
   @override
@@ -22,10 +24,11 @@ class NoScrollbarBehavior extends MaterialScrollBehavior {
         PointerDeviceKind.touch,
         PointerDeviceKind.mouse,
         PointerDeviceKind.trackpad,
-      };
+        };
   @override
   Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) => child;
 }
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -42,12 +45,12 @@ class MyApp extends StatelessWidget {
           primary: const Color(0xFF1A237E),
           secondary: Colors.amber,
         ),
-  cardTheme: CardThemeData( // Используем CardThemeData вместо CardTheme
-  elevation: 10.0, // Добавьте .0, чтобы явно указать double
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(24),
-  ),
-),
+        cardTheme: CardThemeData(
+          elevation: 10.0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF1A237E),
           foregroundColor: Colors.white,
@@ -59,6 +62,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+
 // --- МОДЕЛЬ ДАННЫХ ---
 class TestCard {
   final int? id;
@@ -66,21 +70,25 @@ class TestCard {
   final List<String> options;
   final int correctIndex;
 
+
   TestCard({this.id, required this.question, required this.options, required this.correctIndex});
+
 
   Map<String, dynamic> toMap() => {
         'question': question,
         'options': jsonEncode(options),
         'correct_index': correctIndex,
-      };
+        };
+
 
   factory TestCard.fromMap(Map<String, dynamic> map) => TestCard(
         id: map['id'],
         question: map['question'],
         options: List<String>.from(jsonDecode(map['options'])),
         correctIndex: map['correct_index'],
-      );
+        );
 }
+
 
 // --- БАЗА ДАННЫХ ---
 class DbHelper {
@@ -91,6 +99,7 @@ class DbHelper {
     return _db!;
   }
 
+
   Future<Database> _init() async {
     String path = p.join(await getDatabasesPath(), 'smart_cards_v1.db');
     return await openDatabase(path, version: 1, onCreate: (db, v) async {
@@ -98,16 +107,19 @@ class DbHelper {
     });
   }
 
+
   Future<List<TestCard>> getCards() async {
     final db = await database;
     final res = await db.query('quiz');
     return res.map((m) => TestCard.fromMap(m)).toList();
   }
 
+
   Future<void> add(TestCard c) async => (await database).insert('quiz', c.toMap());
   Future<void> update(TestCard c) async => (await database).update('quiz', c.toMap(), where: 'id = ?', whereArgs: [c.id]);
   Future<void> delete(int id) async => (await database).delete('quiz', where: 'id = ?', whereArgs: [id]);
 }
+
 
 // --- ЭКРАН ВИКТОРИНЫ ---
 class QuizScreen extends StatefulWidget {
@@ -121,13 +133,16 @@ class _QuizScreenState extends State<QuizScreen> {
   final Map<int, int> _answers = {};
   int _correct = 0, _wrong = 0;
 
+
   @override
   void initState() { super.initState(); _refresh(); }
+
 
   void _refresh() async {
     _cardsNotifier.value = await DbHelper().getCards();
     setState(() { _answers.clear(); _correct = 0; _wrong = 0; });
   }
+
 
   void _onSelect(int cardIdx, int optIdx, int correctIdx) {
     if (_answers.containsKey(cardIdx)) return;
@@ -142,6 +157,7 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_answers.length == _cardsNotifier.value.length) _showFinishDialog();
   }
 
+
   void _showFinishDialog() {
     double score = _cardsNotifier.value.isEmpty ? 0 : (_correct / _cardsNotifier.value.length) * 5;
     showDialog(context: context, builder: (ctx) => AlertDialog(
@@ -151,6 +167,7 @@ class _QuizScreenState extends State<QuizScreen> {
       actions: [ElevatedButton(onPressed: () { Navigator.pop(ctx); _refresh(); }, child: const Text("Повторить"))],
     ));
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -169,9 +186,10 @@ class _QuizScreenState extends State<QuizScreen> {
           valueListenable: _cardsNotifier,
           builder: (context, cards, _) {
             if (cards.isEmpty) return const Center(child: Text("БД пуста. Перейдите в редактор."));
-            return PageView.builder(
+            // ИЗМЕНЕНО: ListView.builder (вертикальный скролл) вместо PageView.builder
+            return ListView.builder(
               itemCount: cards.length,
-              controller: PageController(viewportFraction: 0.88),
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
               itemBuilder: (context, i) => _buildFlipCard(cards[i], i),
             );
           },
@@ -180,13 +198,14 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
 
+
   Widget _buildFlipCard(TestCard card, int index) {
     bool answered = _answers.containsKey(index);
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 580, maxWidth: 480),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
           child: FlipCard(
             flipOnTouch: answered,
             front: _buildFront(card, index),
@@ -196,6 +215,7 @@ class _QuizScreenState extends State<QuizScreen> {
       ),
     );
   }
+
 
   Widget _buildFront(TestCard card, int index) {
     return Card(
@@ -218,6 +238,7 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
 
+
   Widget _buildBack(TestCard card) {
     return Card(
       color: const Color(0xFF1A237E),
@@ -239,17 +260,21 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
 
+
   Widget _buildOptionWidget(int cardIdx, int optIdx, int correctIdx, String text) {
     bool selected = _answers[cardIdx] == optIdx;
     bool isCorrect = optIdx == correctIdx;
 
+
     Color bgColor = Colors.white;
     Color textColor = Colors.black87;
+
 
     if (selected) {
       bgColor = isCorrect ? Colors.green.shade600 : Colors.red.shade600;
       textColor = Colors.white;
     }
+
 
     return GestureDetector(
       onTap: () => _onSelect(cardIdx, optIdx, correctIdx),
@@ -269,11 +294,13 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
 
+
   void _openEditor() async {
     await Navigator.push(context, MaterialPageRoute(builder: (c) => const EditorScreen()));
     _refresh();
   }
 }
+
 
 // --- ЭКРАН РЕДАКТОРА ---
 class EditorScreen extends StatefulWidget {
@@ -291,10 +318,12 @@ class _EditorScreenState extends State<EditorScreen> {
     setState(() => _list = data);
   }
 
+
   void _showForm([TestCard? card]) {
     final qC = TextEditingController(text: card?.question);
     final oC = List.generate(4, (i) => TextEditingController(text: card != null ? card.options[i] : ''));
     int localCorrect = card?.correctIndex ?? 0;
+
 
     showDialog(
       context: context,
@@ -313,7 +342,7 @@ class _EditorScreenState extends State<EditorScreen> {
                   value: i,
                   groupValue: localCorrect,
                   onChanged: (val) => setDialogState(() => localCorrect = val!),
-                )),
+               )),
               ],
             ),
           ),
@@ -332,6 +361,7 @@ class _EditorScreenState extends State<EditorScreen> {
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
